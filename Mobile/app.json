@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "NeighborhoodShare",
+    "slug": "neighborhoodshare",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#f5f7fa"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {},
+    "plugins": [
+      "expo-asset",
+      "expo-font"
+    ]
+  }
+}
