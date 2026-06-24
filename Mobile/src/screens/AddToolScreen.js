@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { Image, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { api } from "../api/client";
+import { Image, Text, TextInput, TouchableOpacity, View, ScrollView } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { api, resolveUrl } from "../api/client";
 import { styles } from "../styles/styles";
 import ScreenHeader from "../components/ScreenHeader";
 import { pickAndUploadImage } from "../utils/imagePicker";
@@ -61,12 +62,13 @@ export default function AddToolScreen() {
   }
 
   return (
-    <View>
-      <ScreenHeader title="List a Tool" subtitle="Earn trust by lending useful equipment to neighbors." />
-      <View style={styles.panel}>
+    <SafeAreaView style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.contentInner}>
+        <ScreenHeader title="List a Tool" subtitle="Earn trust by lending useful equipment to neighbors." />
+        <View style={styles.panel}>
         <TextInput style={styles.input} value={form.name} onChangeText={(value) => setForm({ ...form, name: value })} placeholder="Tool name" />
         <TextInput style={[styles.input, styles.textArea]} value={form.description} onChangeText={(value) => setForm({ ...form, description: value })} placeholder="Description, inclusions, and current condition" multiline />
-        {form.imageUrl ? <Image source={{ uri: form.imageUrl }} style={styles.previewImage} /> : null}
+        {form.imageUrl ? <Image source={{ uri: resolveUrl(form.imageUrl) }} style={styles.previewImage} /> : null}
         <TouchableOpacity style={styles.secondaryButton} onPress={chooseImage}><Text style={styles.secondaryButtonText}>{form.imageUrl ? "Change listing photo" : "Choose listing photo"}</Text></TouchableOpacity>
         <TextInput style={[styles.input, styles.textArea]} value={form.rules} onChangeText={(value) => setForm({ ...form, rules: value })} placeholder="Borrowing rules" multiline />
         <TextInput style={styles.input} value={form.depositPoints} onChangeText={(value) => setForm({ ...form, depositPoints: value })} keyboardType="numeric" placeholder="Escrow points" />
@@ -98,7 +100,8 @@ export default function AddToolScreen() {
         </TouchableOpacity>
         {message ? <Text style={styles.success}>{message}</Text> : null}
         <TouchableOpacity style={styles.primaryButton} onPress={submit}><Text style={styles.primaryButtonText}>Publish tool</Text></TouchableOpacity>
-      </View>
-    </View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }

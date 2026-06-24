@@ -2,6 +2,8 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { Community } from "../models/Community.js";
 import { CommunityPost } from "../models/CommunityPost.js";
 import { CommunityRequest } from "../models/CommunityRequest.js";
+import { CommunityJoinRequest } from "../models/CommunityJoinRequest.js";
+import { Notification } from "../models/Notification.js";
 import { User } from "../models/User.js";
 import { adjustTrustPoints } from "../services/trustService.js";
 import { audit } from "../services/auditService.js";
@@ -77,6 +79,57 @@ export const requestCommunity = asyncHandler(async (req, res) => {
   });
   await audit(req.user, "community.request", "CommunityRequest", request._id, { name: request.name });
   res.status(201).json({ request });
+});
+
+export const submitJoinRequest = asyncHandler(async (req, res) => {
+  const joinCode = String(req.body.joinCode || "").toUpperCase();
+  const community = await Community.findOne({ joinCode });
+  if (!community) return res.status(400).json({ message: "Invalid join code" });
+
+  // require ID and answers
+  if (!req.body.idImageUrl) return res.status(400).json({ message: "idImageUrl is required to join a community" });
+  const answers = req.body.answers || {};
+
+  const existing = await CommunityJoinRequest.findOne({ community: community._id, applicant: req.user._id });
+  if (existing && existing.status === "pending") return res.status(400).json({ message: "You already have a pending join request" });
+
+  const jr = await CommunityJoinRequest.create({ community: community._id, applicant: req.user._id, idImageUrl: req.body.idImageUrl, answers });
+  await audit(req.user, "community.join.request", "CommunityJoinRequest", jr._id, { community: community.name });
+  const note = await Notification.create({ user: req.user._id, title: "Join request submitted", message: `Your request to join ${community.name} is pending admin review.` });
+  try { const { broadcastNotification } = await import("../services/realtimeService.js"); broadcastNotification(String(req.user._id), { id: note._id, title: note.title, message: note.message }); } catch (e) { }
+  res.status(201).json({ request: jr });
+});
+
+export const listJoinRequests = asyncHandler(async (req, res) => {
+  const query = ["admin", "superAdmin"].includes(req.user.role) ? {} : { applicant: req.user._id };
+  const list = await CommunityJoinRequest.find(query).populate("applicant", "fullName email trustPoints").populate("community", "name").sort({ createdAt: -1 });
+  res.json({ requests: list });
+});
+
+export const reviewJoinRequest = asyncHandler(async (req, res) => {
+  const jr = await CommunityJoinRequest.findById(req.params.id).populate("community");
+  if (!jr) return res.status(404).json({ message: "Join request not found" });
+  const decision = req.body.decision;
+  jr.status = decision === "approved" ? "approved" : "rejected";
+  jr.reviewedBy = req.user._id;
+  jr.reviewedAt = new Date();
+  jr.adminNote = req.body.adminNote;
+  await jr.save();
+
+  if (decision === "approved") {
+    // attach user to community and set approved
+    await User.findByIdAndUpdate(jr.applicant, { community: jr.community._id, status: "approved" });
+    await audit(req.user, "community.join.approved", "CommunityJoinRequest", jr._id, { community: jr.community.name });
+    const note = await Notification.create({ user: jr.applicant, title: "Join request approved", message: `Your join request for ${jr.community.name} was approved.` });
+    try { const { broadcastNotification } = await import("../services/realtimeService.js"); broadcastNotification(String(jr.applicant), { id: note._id, title: note.title, message: note.message }); } catch (e) { }
+  }
+
+  if (decision === "rejected") {
+    const note = await Notification.create({ user: jr.applicant, title: "Join request rejected", message: `Your join request for ${jr.community.name} was rejected.` });
+    try { const { broadcastNotification } = await import("../services/realtimeService.js"); broadcastNotification(String(jr.applicant), { id: note._id, title: note.title, message: note.message }); } catch (e) { }
+  }
+
+  res.json({ request: jr });
 });
 
 export const reviewCommunityRequest = asyncHandler(async (req, res) => {

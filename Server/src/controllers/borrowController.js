@@ -2,11 +2,13 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { BorrowRequest } from "../models/BorrowRequest.js";
 import { BorrowTransaction } from "../models/BorrowTransaction.js";
 import { Tool } from "../models/Tool.js";
+import { Community } from "../models/Community.js";
 import { User } from "../models/User.js";
 import { adjustTrustPoints, getPriorityScore } from "../services/trustService.js";
 import { audit } from "../services/auditService.js";
 import { Dispute } from "../models/Dispute.js";
 import { MessageThread } from "../models/MessageThread.js";
+import { Notification } from "../models/Notification.js";
 
 const MINIMUM_BORROW_TRUST = 51;
 
@@ -39,12 +41,18 @@ export const createBorrowRequest = asyncHandler(async (req, res) => {
   if (borrower.trustPoints < MINIMUM_BORROW_TRUST) {
     return res.status(403).json({ message: "You need more than 50 trust points to borrow. Return active items or rebuild trust first." });
   }
-  const activeBorrowing = await BorrowRequest.findOne({
-    borrower: req.user._id,
-    status: { $in: ["approved", "picked_up", "overdue", "disputed"] }
-  });
-  if (activeBorrowing) {
-    return res.status(400).json({ message: "Return or resolve your current borrowed item before borrowing another one." });
+  // Require ID on file before borrowing
+  if (!borrower.idImageUrl) {
+    return res.status(403).json({ message: "Please upload a valid ID in your profile before requesting to borrow items." });
+  }
+
+  // Enforce configurable concurrent borrow limit from community settings
+  const community = await Community.findById(tool.community);
+  const maxConcurrent = (community && community.trustRules && community.trustRules.maxConcurrentBorrows) || 1;
+  // Count only actively borrowed items (transactions) to prevent blocking users who only have pending requests
+  const activeCount = await BorrowTransaction.countDocuments({ borrower: req.user._id, status: "active" });
+  if (activeCount >= maxConcurrent) {
+    return res.status(400).json({ message: `You have reached the concurrent borrow limit (${maxConcurrent}). Return active items or wait until they are completed.` });
   }
 
   const startDate = new Date(req.body.startDate);
@@ -63,6 +71,8 @@ export const createBorrowRequest = asyncHandler(async (req, res) => {
     endDate,
     requestNote: req.body.requestNote,
     escrowPoints: tool.depositPoints,
+    initialEvidenceUrl: req.body.evidenceUrl || null,
+    evidenceUrls: req.body.evidenceUrl ? [req.body.evidenceUrl] : [],
     priorityScore: getPriorityScore(borrower, requestedDays)
   });
 
@@ -79,6 +89,11 @@ export const createBorrowRequest = asyncHandler(async (req, res) => {
       readBy: [req.user._id]
     }]
   });
+  // notify owner of incoming request
+  try {
+    const note = await Notification.create({ user: tool.owner, title: "New borrow request", message: `${req.user.fullName || 'A user'} requested to borrow ${tool.name}` });
+    try { const { broadcastNotification } = await import("../services/realtimeService.js"); broadcastNotification(String(tool.owner), { id: note._id, title: note.title, message: note.message }); } catch (e) {}
+  } catch (e) { }
   res.status(201).json({ borrowRequest });
 });
 
@@ -108,6 +123,11 @@ export const decideBorrowRequest = asyncHandler(async (req, res) => {
     borrowRequest.status = "rejected";
   }
   await borrowRequest.save();
+  // notify borrower of decision
+  try {
+    const note = await Notification.create({ user: borrowRequest.borrower, title: "Borrow request update", message: `Your request for ${borrowRequest.tool.name} was ${borrowRequest.status}.` });
+    try { const { broadcastNotification } = await import("../services/realtimeService.js"); broadcastNotification(String(borrowRequest.borrower), { id: note._id, title: note.title, message: note.message }); } catch (e) {}
+  } catch (e) { }
   res.json({ borrowRequest });
 });
 
@@ -161,12 +181,42 @@ export const returnBorrowRequest = asyncHandler(async (req, res) => {
   const borrowRequest = await BorrowRequest.findById(req.params.id).populate("tool");
   if (!borrowRequest) return res.status(404).json({ message: "Borrow request not found" });
   if (borrowRequest.borrower.toString() !== req.user._id.toString()) return res.status(403).json({ message: "Only borrower can return this tool" });
+  // Borrower submits return evidence; ownership verification is required
+  borrowRequest.status = "returned";
+  borrowRequest.returnedAt = new Date();
+  borrowRequest.returnChecklist = req.body.returnChecklist || {};
+  // store photo evidence url if provided
+  if (req.body.returnChecklist && req.body.returnChecklist.photoEvidenceUrl) {
+    borrowRequest.returnChecklist.photoEvidenceUrl = req.body.returnChecklist.photoEvidenceUrl;
+  }
+  await borrowRequest.save();
 
-  const returnedAt = new Date();
+  // Create/Update BorrowTransaction to mark returned pending owner verification
+  await BorrowTransaction.findOneAndUpdate(
+    { borrowRequest: borrowRequest._id },
+    { returnedAt: borrowRequest.returnedAt, status: "active" },
+    { upsert: true, new: true }
+  );
+
+  // notify owner that return was submitted
+  try {
+    const note = await Notification.create({ user: borrowRequest.owner, title: "Return submitted", message: `${req.user.fullName || 'A borrower'} submitted return evidence for ${borrowRequest.tool.name}.` });
+    try { const { broadcastNotification } = await import("../services/realtimeService.js"); broadcastNotification(String(borrowRequest.owner), { id: note._id, title: note.title, message: note.message }); } catch (e) {}
+  } catch (e) {}
+
+  res.json({ borrowRequest, message: "Return submitted and awaiting owner verification." });
+});
+
+export const verifyReturn = asyncHandler(async (req, res) => {
+  const borrowRequest = await BorrowRequest.findById(req.params.id).populate("tool");
+  if (!borrowRequest) return res.status(404).json({ message: "Borrow request not found" });
+  const isOwner = borrowRequest.owner.toString() === req.user._id.toString();
+  const isAdmin = ["admin", "superAdmin"].includes(req.user.role);
+  if (!isOwner && !isAdmin) return res.status(403).json({ message: "Only owner or admin can verify return" });
+
+  const returnedAt = borrowRequest.returnedAt || new Date();
   const lateDays = returnedAt > borrowRequest.endDate ? Math.ceil((returnedAt - borrowRequest.endDate) / (1000 * 60 * 60 * 24)) : 0;
   borrowRequest.status = lateDays ? "overdue" : "completed";
-  borrowRequest.returnedAt = returnedAt;
-  borrowRequest.returnChecklist = req.body.returnChecklist;
   borrowRequest.tool.status = "available";
   borrowRequest.tool.healthScore = Math.max(0, borrowRequest.tool.healthScore - (lateDays ? 4 : 1));
   await borrowRequest.tool.save();
@@ -178,6 +228,7 @@ export const returnBorrowRequest = asyncHandler(async (req, res) => {
     { new: true }
   );
 
+  // Release escrow
   await adjustTrustPoints({
     userId: borrowRequest.borrower,
     community: borrowRequest.community,
@@ -218,6 +269,12 @@ export const returnBorrowRequest = asyncHandler(async (req, res) => {
       relatedBorrowRequest: borrowRequest._id
     });
   }
+
+  // notify borrower that return was verified and escrow released
+  try {
+    const note = await Notification.create({ user: borrowRequest.borrower, title: "Return verified", message: `Your return for ${borrowRequest.tool.name} was verified. Escrow released.` });
+    try { const { broadcastNotification } = await import("../services/realtimeService.js"); broadcastNotification(String(borrowRequest.borrower), { id: note._id, title: note.title, message: note.message }); } catch (e) {}
+  } catch (e) {}
 
   res.json({ borrowRequest });
 });

@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View, ScrollView } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "../api/client";
 import { styles } from "../styles/styles";
 import ScreenHeader from "../components/ScreenHeader";
 import ToolCard from "../components/ToolCard";
+import { useAuth } from "../store/AuthProvider";
 
-export default function HomeScreen({ user, setTab }) {
+export default function HomeScreen({ navigation }) {
+  const { user } = useAuth();
   const [tools, setTools] = useState([]);
   const [requests, setRequests] = useState([]);
 
@@ -19,8 +22,9 @@ export default function HomeScreen({ user, setTab }) {
   }, []);
 
   return (
-    <View>
-      <ScreenHeader title={`Hi, ${user.fullName.split(" ")[0]}`} subtitle="Your borrowing dashboard and community trust snapshot." />
+    <SafeAreaView style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.contentInner}>
+        <ScreenHeader title={`Hi, ${user.fullName.split(" ")[0]}`} subtitle="Your borrowing dashboard and community trust snapshot." />
       <View style={styles.statsRow}>
         <View style={styles.statBox}><Text style={styles.statValue}>{user.trustPoints}</Text><Text style={styles.muted}>Trust points</Text></View>
         <View style={styles.statBox}><Text style={styles.statValue}>{user.lockedPoints}</Text><Text style={styles.muted}>Locked escrow</Text></View>
@@ -28,9 +32,9 @@ export default function HomeScreen({ user, setTab }) {
       {user.trustPoints <= 50 ? <Text style={styles.error}>Borrowing is paused below 51 trust points. Return active items or rebuild trust first.</Text> : null}
       <View style={styles.sectionTitleRow}>
         <Text style={styles.sectionTitle}>Available tools</Text>
-        <TouchableOpacity onPress={() => setTab("browse")}><Text style={styles.link}>View all</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.navigate("Browse")}><Text style={styles.link}>View all</Text></TouchableOpacity>
       </View>
-      {tools.map((tool) => <ToolCard key={tool._id} tool={tool} onPress={() => setTab("browse")} />)}
+      {tools.map((tool) => <ToolCard key={tool._id} tool={tool} onPress={() => navigation.navigate("Browse")} />)}
       <Text style={styles.sectionTitle}>Active activity</Text>
       {requests.length ? requests.map((request) => (
         <View style={styles.listItem} key={request._id}>
@@ -38,6 +42,7 @@ export default function HomeScreen({ user, setTab }) {
           <Text style={styles.muted}>{request.status} - priority {request.priorityScore}</Text>
         </View>
       )) : <Text style={styles.muted}>No borrow requests yet.</Text>}
-    </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }

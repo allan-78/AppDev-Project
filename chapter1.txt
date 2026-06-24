@@ -1,0 +1,67 @@
+
+
+CHAPTER 1
+Introduction
+In many residential communities and suburban neighborhoods, households often own tools and utility equipment that are expensive to purchase but are only used occasionally. Items such as power washers, lawnmowers, extension ladders, hedge trimmers, and other maintenance equipment frequently remain unused for long periods after a single use. As a result, residents spend significant amounts of money on tools that are rarely utilized, leading to unnecessary expenses and inefficient resource allocation.
+The advancement of information technology has enabled communities to adopt collaborative and sharing-based systems that promote resource optimization and community engagement. Through digital platforms, residents can conveniently share resources, coordinate borrowing activities, and establish trust among community members. However, many neighborhoods still rely on informal communication methods such as social media groups, messaging applications, or personal arrangements when lending or borrowing tools. These approaches often lack proper monitoring, accountability, and security measures, resulting in disputes, lost items, damaged equipment, and inefficient management.
+To address these challenges, this study proposes the design and development of NeighborhoodShare, a Web and Mobile-Based Suburban Tool and Utility Co-op System. The system consists of a mobile application for residents and a web-based platform for administrators. The mobile application allows residents to list available tools, request borrowing schedules, manage reservations, and track transactions. The web platform enables community leaders and administrators to oversee inventory records, monitor borrowing activities, resolve disputes, and manage user accounts.
+Furthermore, the system introduces innovative features such as Trust-Weighted Escrow Points and Split-Maintenance Allocation. The Trust-Weighted Escrow Points mechanism encourages responsible borrowing behavior by assigning points based on user reliability, while the Split-Maintenance Allocation algorithm automatically distributes maintenance costs among recent borrowers of shared equipment. Additionally, secure authentication and registration mechanisms are incorporated to ensure that only verified residents can participate in the sharing ecosystem.
+Through these features, NeighborhoodShare aims to promote responsible resource sharing, reduce household expenses, improve community cooperation, and enhance the efficient utilization of tools and utility equipment within residential communities.
+Background of the Study
+The increasing cost of purchasing household tools and utility equipment has become a challenge for many residents. Although these tools are necessary for maintenance, repair, and improvement activities, they are often used only a few times throughout the year. Consequently, many households spend money on equipment that remains unused for extended periods, resulting in inefficient utilization of resources.
+The concept of the sharing economy has emerged as an effective approach to addressing this issue. Sharing economy platforms allow individuals to access resources when needed without requiring ownership. Various sharing platforms have demonstrated the benefits of collaborative consumption by reducing costs and maximizing resource utilization. However, localized tool-sharing systems specifically designed for residential communities and barangays remain limited.
+Many communities currently rely on social media groups, messaging applications, or personal arrangements to coordinate the borrowing and lending of tools. While these methods provide basic communication, they often lack structured monitoring, accountability, security, and inventory management. As a result, disputes regarding damaged tools, missed return schedules, and unavailable equipment frequently occur.
+The development of a dedicated web and mobile platform can provide a more organized and secure solution. By integrating inventory management, borrowing requests, trust-based mechanisms, maintenance tracking, and secure user authentication, communities can establish a reliable environment for sharing resources.
+NeighborhoodShare is designed to address these challenges by providing a centralized platform for residents and administrators. The system promotes community cooperation while ensuring accountability, security, and efficient management of shared tools and utility equipment.
+Statement of the Problem
+This study aims to design and develop NeighborhoodShare: A Web and Mobile-Based Suburban Tool and Utility Co-op System.
+Specifically, it seeks to answer the following questions:
+	1.	How can a web and mobile-based system be developed to facilitate tool and utility equipment sharing among residents within a community?
+	2.	How can the system provide an organized inventory management mechanism for tracking available tools, ownership information, and equipment conditions?
+	3.	How can borrowing requests, reservations, and return schedules be managed efficiently through a mobile application?
+	4.	How can secure authentication and user verification be implemented to ensure that only authorized community members can access the platform?
+	5.	How can a trust-based point system be utilized to encourage responsible borrowing and lending behavior among residents?
+	6.	How can maintenance and repair costs be fairly allocated among users who frequently utilize shared tools?
+	7.	How can the system assist administrators in monitoring transactions, resolving disputes, and maintaining accountability within the community?
+Objectives of the Study
+General Objective
+To design and develop NeighborhoodShare, a Web and Mobile-Based Suburban Tool and Utility Co-op System that enables secure, efficient, and organized sharing of tools and utility equipment among community residents.
+Specific Objectives
+	1.	To develop a mobile application that allows residents to list, browse, request, borrow, and return tools within their community.
+	2.	To develop a web-based administration panel for managing user accounts, inventory records, transactions, and dispute resolution.
+	3.	To implement a secure authentication and registration system for verified community members.
+	4.	To create an Inventory Ledger module that records tool ownership, availability, maintenance history, and wear-and-tear logs.
+	5.	To develop a Borrowing Request Engine that manages reservation schedules and borrowing requests.
+	6.	To implement a Trust-Weighted Escrow Points system that evaluates user reliability and encourages responsible borrowing behavior.
+	7.	To develop a Split-Maintenance Allocation algorithm that automatically distributes maintenance costs among recent borrowers of shared equipment.
+	8.	To provide monitoring and reporting features for administrators and community leaders.
+Significance of the Study
+Residents. This study will benefit residents by providing a convenient and reliable platform for borrowing and lending tools within their community. Through NeighborhoodShare, residents can access necessary tools without purchasing expensive equipment, helping them save money while promoting responsible resource sharing and stronger neighborhood relationships.
+Community Leaders and Administrators. The system will assist community leaders and administrators in managing shared tools, monitoring borrowing activities, resolving disputes, and maintaining accurate records of transactions. The web-based administration panel will enable them to oversee community resources more efficiently and ensure accountability among users.
+Residential Communities and Barangays. The study will contribute to the development of more cooperative and sustainable communities by encouraging residents to share resources rather than purchase duplicate tools. This promotes efficient resource utilization, reduces waste, and strengthens community engagement and collaboration.
+Future Researchers. The findings of this study may serve as a valuable reference for future researchers who intend to develop similar community-sharing platforms, cooperative management systems, or trust-based digital applications. The study can also provide insights into the implementation of resource-sharing technologies in local communities.
+Information Technology Students and Developers. This study will demonstrate the practical application of web and mobile technologies, secure authentication systems, inventory management, and algorithm-based functionalities in solving real-world problems. It can serve as a learning resource for students and developers interested in building innovative community-oriented systems.
+Academic Institutions. The study may provide educational institutions with an example of how information technology can be utilized to address community challenges through digital solutions. It can also serve as a reference material for future capstone projects, research studies, and software development initiatives.
+Scope of the Study
+The study focuses on the design and development of NeighborhoodShare, a web and mobile-based suburban tool and utility co-op system intended for residential communities, subdivisions, and barangays. Specifically, the system includes:
+	•	Development of a mobile application for residents to list, browse, request, borrow, and return tools.
+	•	Development of a web-based administration panel for administrators and community leaders.
+	•	Implementation of a secure authentication and registration system for verified community members.
+	•	Management of tool inventories through the Inventory Ledger feature.
+	•	Processing of borrowing requests, reservations, and return schedules through the Borrowing Request Engine.
+	•	Implementation of the Trust-Weighted Escrow Points system to encourage responsible borrowing and lending behavior.
+	•	Implementation of the Split-Maintenance Allocation feature for fair distribution of maintenance costs among recent borrowers.
+	•	Monitoring and management of user activities, transactions, and disputes by administrators.
+	•	Generation of reports related to inventory status, borrowing history, and user trust ratings.
+Delimitation of the Study
+The study is limited to the following:
+	•	Only registered and verified residents within participating communities can access and use the system.
+	•	The platform is limited to sharing tools and utility equipment such as lawnmowers, power washers, extension ladders, and similar items.
+	•	Online payment processing and monetary transactions are not included in the system.
+	•	The Trust-Weighted Escrow Points system is only used for borrowing priority and user accountability.
+	•	Maintenance cost allocations generated by the system are recommendations and may require administrator approval.
+	•	GPS tracking and real-time location monitoring of borrowed tools are not included.
+	•	The system requires an active internet connection for both web and mobile access.
+	•	The study focuses only on software design, development, and functionality testing.
+	•	Legal ownership disputes and external community policies are beyond the scope of the system.
+	•	The study will be tested only within selected residential communities or barangays and may not represent all community settings.

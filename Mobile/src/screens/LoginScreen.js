@@ -1,19 +1,29 @@
 import React, { useState } from "react";
-import { ImageBackground, SafeAreaView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ImageBackground, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { styles } from "../styles/styles";
+import PrimaryButton from "../components/PrimaryButton";
+import GlobalLoader from "../components/GlobalLoader";
+import { useAuth } from "../store/AuthProvider";
 
-export default function LoginScreen({ onLogin, onRegister }) {
+export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("resident@neighborhood.test");
   const [password, setPassword] = useState("Password123!");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { login, register } = useAuth();
 
   async function submit() {
+    if (loading) return;
     setError("");
+    setLoading(true);
     try {
-      await onLogin(email, password);
+      await login(email, password);
     } catch (err) {
-      setError(err.message);
+      setError(err?.message || "Login failed");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -24,11 +34,12 @@ export default function LoginScreen({ onLogin, onRegister }) {
         <View style={styles.authPanel}>
           <Text style={styles.authTitle}>NeighborhoodShare</Text>
           <Text style={styles.authCopy}>Borrow trusted tools from verified neighbors.</Text>
-          <TextInput style={styles.input} value={email} onChangeText={setEmail} autoCapitalize="none" placeholder="Email" />
+          <TextInput style={styles.input} value={email} onChangeText={setEmail} autoCapitalize="none" placeholder="Email" keyboardType="email-address" />
           <TextInput style={styles.input} value={password} onChangeText={setPassword} secureTextEntry placeholder="Password" />
           {error ? <Text style={styles.error}>{error}</Text> : null}
-          <TouchableOpacity style={styles.primaryButton} onPress={submit}><Text style={styles.primaryButtonText}>Sign in</Text></TouchableOpacity>
-          <TouchableOpacity onPress={onRegister}><Text style={styles.link}>Create resident account</Text></TouchableOpacity>
+          <PrimaryButton onPress={submit} disabled={loading}>{loading ? 'Signing in…' : 'Sign in'}</PrimaryButton>
+          <TouchableOpacity onPress={() => navigation.navigate("Register")}><Text style={styles.link}>Create resident account</Text></TouchableOpacity>
+          {loading ? <GlobalLoader message={"Signing in..."} fullScreen /> : null}
         </View>
       </SafeAreaView>
     </ImageBackground>

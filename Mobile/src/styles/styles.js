@@ -1,17 +1,6 @@
 import { StyleSheet } from "react-native";
-
-const colors = {
-  bg: "#f6f7f4",
-  surface: "#ffffff",
-  ink: "#1f2933",
-  muted: "#637083",
-  line: "#dde4ea",
-  green: "#176b58",
-  blue: "#2d5f91",
-  gold: "#9a6a10",
-  red: "#b42335",
-  chip: "#edf2f7"
-};
+import theme from "./theme";
+const colors = theme.colors;
 
 export const styles = StyleSheet.create({
   app: { flex: 1, backgroundColor: colors.bg },
@@ -34,7 +23,6 @@ export const styles = StyleSheet.create({
     minHeight: 46,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 8,
     paddingHorizontal: 13,
     backgroundColor: colors.surface,
     color: colors.ink
@@ -185,4 +173,6 @@ export const styles = StyleSheet.create({
   tabItem: { flex: 1, alignItems: "center", gap: 3, paddingHorizontal: 1 },
   tabText: { color: colors.muted, fontSize: 10, fontWeight: "800" },
   tabTextActive: { color: colors.green }
+  ,
+  smallBadge: { position: "absolute", right: -8, top: -8, backgroundColor: colors.red, borderRadius: 12, width: 24, height: 24, alignItems: "center", justifyContent: "center" }
 });

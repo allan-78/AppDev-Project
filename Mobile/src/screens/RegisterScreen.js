@@ -1,25 +1,23 @@
 import React, { useState } from "react";
-import { SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { styles } from "../styles/styles";
 import ScreenHeader from "../components/ScreenHeader";
+import PrimaryButton from "../components/PrimaryButton";
+import { useAuth } from "../store/AuthProvider";
 
-export default function RegisterScreen({ onSubmit, onLogin }) {
-  const [form, setForm] = useState({
-    fullName: "",
-    email: "",
-    password: "",
-    phone: "",
-    address: "",
-    joinCode: "GREEN123"
-  });
+export default function RegisterScreen({ navigation }) {
+  const [form, setForm] = useState({ fullName: "", email: "", password: "", phone: "", address: "", joinCode: "GREEN123" });
   const [message, setMessage] = useState("");
+  const { register } = useAuth();
 
   async function submit() {
     try {
-      await onSubmit(form);
+      await register(form);
       setMessage("Registration submitted. Sign in after admin approval.");
+      navigation.navigate("Pending", { joinCode: form.joinCode });
     } catch (err) {
-      setMessage(err.message);
+      setMessage(err?.message || "Registration failed");
     }
   }
 
@@ -39,8 +37,8 @@ export default function RegisterScreen({ onSubmit, onLogin }) {
           {field("address", "Address")}
           {field("joinCode", "Community join code")}
           {message ? <Text style={styles.muted}>{message}</Text> : null}
-          <TouchableOpacity style={styles.primaryButton} onPress={submit}><Text style={styles.primaryButtonText}>Submit registration</Text></TouchableOpacity>
-          <TouchableOpacity onPress={onLogin}><Text style={styles.link}>Back to login</Text></TouchableOpacity>
+          <PrimaryButton onPress={submit}>Submit registration</PrimaryButton>
+          <TouchableOpacity onPress={() => navigation.navigate('Login')}><Text style={styles.link}>Back to login</Text></TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>

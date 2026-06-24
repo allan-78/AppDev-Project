@@ -42,3 +42,58 @@ export function getPriorityScore(user, requestedDays = 1) {
   const durationWeight = Math.max(0, 10 - requestedDays);
   return Math.round(trustWeight + lendingWeight + durationWeight);
 }
+
+export async function transferTrustPoints({ fromUserId, toIdentifier, amount, community }) {
+  amount = Number(amount);
+  if (!amount || amount <= 0) {
+    const e = new Error("Invalid transfer amount");
+    e.statusCode = 400;
+    throw e;
+  }
+
+  const fromUser = await User.findById(fromUserId);
+  if (!fromUser) throw new Error("Sender not found");
+
+  const isEmail = typeof toIdentifier === "string" && toIdentifier.includes("@");
+  const query = isEmail ? { email: toIdentifier.toLowerCase() } : { username: toIdentifier };
+  const toUser = await User.findOne(query);
+  if (!toUser) {
+    const e = new Error("Recipient not found");
+    e.statusCode = 404;
+    throw e;
+  }
+
+  if (fromUser.trustPoints < Math.abs(amount)) {
+    const e = new Error("Not enough trust points");
+    e.statusCode = 400;
+    throw e;
+  }
+
+  fromUser.trustPoints = Math.max(0, fromUser.trustPoints - Math.abs(amount));
+  toUser.trustPoints = Math.max(0, toUser.trustPoints + Math.abs(amount));
+
+  await fromUser.save();
+  await toUser.save();
+
+  await TrustPointTransaction.create({
+    user: fromUser._id,
+    community,
+    amount: -Math.abs(amount),
+    type: "transfer_out",
+    reason: `Transfer to ${toUser.email || toUser.username}`,
+    balanceAfter: fromUser.trustPoints,
+    lockedAfter: fromUser.lockedPoints
+  });
+
+  await TrustPointTransaction.create({
+    user: toUser._id,
+    community,
+    amount: Math.abs(amount),
+    type: "transfer_in",
+    reason: `Transfer from ${fromUser.email || fromUser.username}`,
+    balanceAfter: toUser.trustPoints,
+    lockedAfter: toUser.lockedPoints
+  });
+
+  return { fromUser, toUser };
+}

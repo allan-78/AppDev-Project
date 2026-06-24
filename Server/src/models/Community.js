@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 const trustRulesSchema = new mongoose.Schema(
   {
     startingPoints: { type: Number, default: 100 },
+    maxConcurrentBorrows: { type: Number, default: 1 },
     escrowPoints: { type: Number, default: 10 },
     latePenaltyPerDay: { type: Number, default: 5 },
     damagePenalty: { type: Number, default: 25 },

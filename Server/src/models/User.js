@@ -16,6 +16,8 @@ const userSchema = new mongoose.Schema(
     community: { type: mongoose.Schema.Types.ObjectId, ref: "Community" },
     avatarUrl: String,
     idImageUrl: String,
+    idVerified: { type: Boolean, default: false },
+    emailVerified: { type: Boolean, default: false },
     bio: { type: String, default: "" },
     badges: [{ type: String, trim: true }],
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],

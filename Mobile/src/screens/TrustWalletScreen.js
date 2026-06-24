@@ -1,27 +1,53 @@
 import React, { useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { Text, View, ScrollView, RefreshControl, TouchableOpacity } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "../api/client";
 import { styles } from "../styles/styles";
 import ScreenHeader from "../components/ScreenHeader";
+import { useAuth } from "../store/AuthProvider";
+import WalletSummary from "../components/WalletSummary";
+import { Alert } from "react-native";
+import TransactionDetailModal from "../components/TransactionDetailModal";
+import TransferModal from "../components/TransferModal";
 
-export default function TrustWalletScreen({ user }) {
+export default function TrustWalletScreen() {
+  const { user } = useAuth();
   const [transactions, setTransactions] = useState([]);
-  const lowTrust = Number(user.trustPoints || 0) <= 50;
+  const [transferVisible, setTransferVisible] = useState(false);
+  const lowTrust = Number(user?.trustPoints || 0) <= 50;
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedTx, setSelectedTx] = useState(null);
 
-  useEffect(() => {
-    api("/trust-points").then((data) => setTransactions(data.transactions)).catch(console.error);
-  }, []);
+  async function load() {
+    try {
+      const data = await api("/trust-points");
+      setTransactions(data.transactions || []);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  async function onRefresh() {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }
 
   return (
-    <View>
-      <ScreenHeader title="Trust Wallet" subtitle="Escrow, rewards, penalties, and safer borrowing rules." />
-      {lowTrust ? (
-        <Text style={styles.error}>Your trust score is low. Borrowing is paused until you are above 50 points.</Text>
-      ) : null}
-      <View style={styles.statsRow}>
-        <View style={styles.statBox}><Text style={styles.statValue}>{user.trustPoints}</Text><Text style={styles.muted}>Available</Text></View>
-        <View style={styles.statBox}><Text style={styles.statValue}>{user.lockedPoints}</Text><Text style={styles.muted}>Locked</Text></View>
-      </View>
+    <SafeAreaView style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.contentInner}>
+        <ScreenHeader title="Trust Wallet" subtitle="Escrow, rewards, penalties, and safer borrowing rules." />
+        {lowTrust ? (
+          <Text style={styles.error}>Your trust score is low. Borrowing is paused until you are above 50 points.</Text>
+        ) : null}
+
+        <WalletSummary
+          user={user}
+          onTransfer={() => setTransferVisible(true)}
+          onWithdraw={() => Alert.alert('Withdraw', 'Withdraw flow placeholder')}
+        />
 
       <View style={styles.panel}>
         <Text style={styles.cardTitle}>How to raise trust</Text>
@@ -32,13 +58,16 @@ export default function TrustWalletScreen({ user }) {
       </View>
 
       <Text style={styles.sectionTitle}>Point history</Text>
-      {transactions.map((tx) => (
-        <View style={styles.listItem} key={tx._id}>
+      {transactions.length ? transactions.map((tx) => (
+        <TouchableOpacity key={tx._id} style={styles.listItem} onPress={() => setSelectedTx(tx)} accessibilityRole="button" accessibilityLabel={`Transaction ${tx.type} ${tx.amount} points`}>
           <Text style={styles.cardTitle}>{tx.reason}</Text>
           <Text style={styles.muted}>{tx.type} - {tx.amount} points</Text>
-        </View>
-      ))}
-      {!transactions.length ? <Text style={styles.muted}>No point history yet.</Text> : null}
-    </View>
+        </TouchableOpacity>
+      )) : <Text style={styles.muted}>No point history yet.</Text>}
+
+      <TransactionDetailModal visible={!!selectedTx} tx={selectedTx} onClose={() => setSelectedTx(null)} />
+      <TransferModal visible={transferVisible} onClose={() => setTransferVisible(false)} onSuccess={() => { load(); }} />
+      </ScrollView>
+    </SafeAreaView>
   );
 }

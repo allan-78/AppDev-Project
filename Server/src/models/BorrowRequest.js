@@ -24,6 +24,8 @@ const borrowRequestSchema = new mongoose.Schema(
       default: "requested"
     },
     escrowPoints: { type: Number, default: 0 },
+    evidenceUrls: [{ type: String }],
+    initialEvidenceUrl: { type: String },
     priorityScore: { type: Number, default: 0 },
     requestNote: String,
     pickupChecklist: checklistSchema,
