@@ -5,3 +5,4 @@ dist/
 Server/uploads-temp/*
 !Server/uploads-temp/.gitkeep
 npm-debug.log*
+.env
