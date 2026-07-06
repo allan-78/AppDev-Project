@@ -1,8 +1,8 @@
 import React from "react";
-import { View, Text, TouchableOpacity } from "react-native";
+import { View, Text } from "react-native";
 import { styles } from "../styles/styles";
 
-export default function WalletSummary({ user = {} , onTransfer, onWithdraw }) {
+export default function WalletSummary({ user = {} }) {
   return (
     <View style={styles.panel} accessible accessibilityRole="summary">
       <Text style={styles.cardTitle}>Trust Wallet</Text>
@@ -16,10 +16,7 @@ export default function WalletSummary({ user = {} , onTransfer, onWithdraw }) {
           <Text style={styles.muted}>Locked</Text>
         </View>
       </View>
-      <View style={styles.actionRow}>
-        <TouchableOpacity style={styles.ghostButton} onPress={onTransfer} accessibilityRole="button" accessibilityLabel="Transfer trust points"><Text style={styles.secondaryButtonText}>Transfer</Text></TouchableOpacity>
-        <TouchableOpacity style={styles.secondaryButton} onPress={onWithdraw} accessibilityRole="button" accessibilityLabel="Withdraw trust points"><Text style={styles.secondaryButtonText}>Withdraw</Text></TouchableOpacity>
-      </View>
+      <Text style={styles.muted}>Trust points are now reserved for escrow, rewards, penalties, and admin adjustments.</Text>
     </View>
   );
 }

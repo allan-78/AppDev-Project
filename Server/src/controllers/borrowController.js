@@ -4,23 +4,41 @@ import { BorrowTransaction } from "../models/BorrowTransaction.js";
 import { Tool } from "../models/Tool.js";
 import { Community } from "../models/Community.js";
 import { User } from "../models/User.js";
-import { adjustTrustPoints, getPriorityScore } from "../services/trustService.js";
+import { adjustTrustPoints, getPriorityScore, getTrustTier } from "../services/trustService.js";
 import { audit } from "../services/auditService.js";
 import { Dispute } from "../models/Dispute.js";
 import { MessageThread } from "../models/MessageThread.js";
-import { Notification } from "../models/Notification.js";
+import { notifyUser } from "../services/notificationService.js";
+import mongoose from "mongoose";
 
 const MINIMUM_BORROW_TRUST = 51;
 
 export const listBorrowRequests = asyncHandler(async (req, res) => {
   const query = { community: req.user.community };
-  if (req.user.role === "resident") query.$or = [{ borrower: req.user._id }, { owner: req.user._id }];
-  if (req.query.status) query.status = req.query.status;
+  
+  // Filter by role: if user is resident, only show their requests
+  if (req.user.role === "resident") {
+    query.$or = [{ borrower: req.user._id }, { owner: req.user._id }];
+  }
+  
+  // Optional status filter
+  if (req.query.status) {
+    query.status = req.query.status;
+  }
+  
+  // Optional filter param for frontend
+  if (req.query.filter === "borrowed") {
+    query.borrower = req.user._id;
+    delete query.$or;
+  } else if (req.query.filter === "lent") {
+    query.owner = req.user._id;
+    delete query.$or;
+  }
 
   const requests = await BorrowRequest.find(query)
-    .populate("tool", "name images status healthScore")
-    .populate("borrower", "fullName trustPoints")
-    .populate("owner", "fullName")
+    .populate("tool", "name images status healthScore depositPoints")
+    .populate("borrower", "fullName trustPoints email")
+    .populate("owner", "fullName trustPoints email")
     .sort({ priorityScore: -1, createdAt: -1 });
   res.json({ requests });
 });
@@ -41,11 +59,6 @@ export const createBorrowRequest = asyncHandler(async (req, res) => {
   if (borrower.trustPoints < MINIMUM_BORROW_TRUST) {
     return res.status(403).json({ message: "You need more than 50 trust points to borrow. Return active items or rebuild trust first." });
   }
-  // Require ID on file before borrowing
-  if (!borrower.idImageUrl) {
-    return res.status(403).json({ message: "Please upload a valid ID in your profile before requesting to borrow items." });
-  }
-
   // Enforce configurable concurrent borrow limit from community settings
   const community = await Community.findById(tool.community);
   const maxConcurrent = (community && community.trustRules && community.trustRules.maxConcurrentBorrows) || 1;
@@ -62,6 +75,30 @@ export const createBorrowRequest = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: `This item can only be borrowed for up to ${tool.maxBorrowDays} day(s).` });
   }
 
+  // Validate against tool's blocked dates
+  if (tool.blockedDates && tool.blockedDates.length > 0) {
+    const hasBlockedOverlap = tool.blockedDates.some(blocked => {
+      const blockedDate = new Date(blocked);
+      return blockedDate >= startDate && blockedDate <= endDate;
+    });
+    if (hasBlockedOverlap) {
+      return res.status(400).json({ message: "The requested dates overlap with blocked dates for this tool." });
+    }
+  }
+
+  // Check for overlapping approved/active borrow requests (prevent double-booking)
+  const overlapping = await BorrowRequest.findOne({
+    tool: tool._id,
+    status: { $in: ["approved", "picked_up", "admin_review", "verified"] },
+    _id: { $ne: req.params.id },
+    $or: [
+      { startDate: { $lte: endDate }, endDate: { $gte: startDate } }
+    ]
+  });
+  if (overlapping) {
+    return res.status(400).json({ message: "This tool is already reserved for the requested dates. Please choose different dates." });
+  }
+
   const borrowRequest = await BorrowRequest.create({
     tool: tool._id,
     borrower: req.user._id,
@@ -73,6 +110,10 @@ export const createBorrowRequest = asyncHandler(async (req, res) => {
     escrowPoints: tool.depositPoints,
     initialEvidenceUrl: req.body.evidenceUrl || null,
     evidenceUrls: req.body.evidenceUrl ? [req.body.evidenceUrl] : [],
+    initialEvidenceMedia: req.body.evidenceMedia || (req.body.evidenceUrl ? { url: req.body.evidenceUrl, resourceType: "image" } : undefined),
+    evidenceMedia: req.body.evidenceMedia ? [req.body.evidenceMedia] : (req.body.evidenceUrl ? [{ url: req.body.evidenceUrl, resourceType: "image" }] : []),
+    // Tier-based auto-approval: Platinum users skip admin review for low deposit tools
+    status: (getTrustTier(borrower.trustPoints) === "Platinum" && tool.depositPoints <= 10) ? "verified" : "admin_review",
     priorityScore: getPriorityScore(borrower, requestedDays)
   });
 
@@ -89,12 +130,48 @@ export const createBorrowRequest = asyncHandler(async (req, res) => {
       readBy: [req.user._id]
     }]
   });
-  // notify owner of incoming request
-  try {
-    const note = await Notification.create({ user: tool.owner, title: "New borrow request", message: `${req.user.fullName || 'A user'} requested to borrow ${tool.name}` });
-    try { const { broadcastNotification } = await import("../services/realtimeService.js"); broadcastNotification(String(tool.owner), { id: note._id, title: note.title, message: note.message }); } catch (e) {}
-  } catch (e) { }
+  await notifyUser(req.user._id, { title: "Borrow request submitted", message: `${tool.name} is awaiting admin ID and security verification.`, type: "borrow", data: { borrowRequestId: borrowRequest._id } });
   res.status(201).json({ borrowRequest });
+});
+
+export const reviewBorrowVerification = asyncHandler(async (req, res) => {
+  const borrowRequest = await BorrowRequest.findById(req.params.id).populate("tool").populate("borrower", "fullName");
+  if (!borrowRequest) return res.status(404).json({ message: "Borrow request not found" });
+  const decision = req.body.decision;
+  borrowRequest.adminVerification = {
+    status: decision === "verified" ? "verified" : "rejected",
+    note: req.body.note || req.body.adminNote || "",
+    reviewedBy: req.user._id,
+    reviewedAt: new Date()
+  };
+
+  if (decision === "verified") {
+    borrowRequest.status = "verified";
+    await notifyUser(borrowRequest.owner, {
+      title: "Borrow request verified",
+      message: `${borrowRequest.borrower?.fullName || "A borrower"} was verified for ${borrowRequest.tool.name}. You can now approve or reject the request.`,
+      type: "borrow",
+      data: { borrowRequestId: borrowRequest._id }
+    });
+    await notifyUser(borrowRequest.borrower._id || borrowRequest.borrower, {
+      title: "Borrow verification passed",
+      message: `Your request for ${borrowRequest.tool.name} is now waiting for lender approval.`,
+      type: "borrow",
+      data: { borrowRequestId: borrowRequest._id }
+    });
+  } else {
+    borrowRequest.status = "rejected";
+    await notifyUser(borrowRequest.borrower._id || borrowRequest.borrower, {
+      title: "Borrow request rejected",
+      message: `Your request for ${borrowRequest.tool.name} did not pass admin verification.`,
+      type: "borrow",
+      data: { borrowRequestId: borrowRequest._id }
+    });
+  }
+
+  await borrowRequest.save();
+  await audit(req.user, "borrow.verification", "BorrowRequest", borrowRequest._id, { status: borrowRequest.adminVerification.status });
+  res.json({ borrowRequest });
 });
 
 export const decideBorrowRequest = asyncHandler(async (req, res) => {
@@ -103,31 +180,47 @@ export const decideBorrowRequest = asyncHandler(async (req, res) => {
   const isOwner = borrowRequest.owner.toString() === req.user._id.toString();
   const isAdmin = ["admin", "superAdmin"].includes(req.user.role);
   if (!isOwner && !isAdmin) return res.status(403).json({ message: "Only owner or admin can decide this request" });
-
   const { decision } = req.body;
+  if (decision === "approved" && borrowRequest.status !== "verified" && !isAdmin) {
+    return res.status(400).json({ message: "Admin verification is required before lender approval" });
+  }
+  if (decision === "approved" && isAdmin && borrowRequest.status === "admin_review") {
+    borrowRequest.adminVerification = { status: "verified", reviewedBy: req.user._id, reviewedAt: new Date(), note: "Verified during admin approval" };
+  }
+
   if (decision === "approved") {
-    await adjustTrustPoints({
-      userId: borrowRequest.borrower,
-      community: borrowRequest.community,
-      amount: -borrowRequest.escrowPoints,
-      type: "escrow_lock",
-      reason: "Borrowing escrow locked",
-      relatedTool: borrowRequest.tool._id,
-      relatedBorrowRequest: borrowRequest._id
-    });
-    borrowRequest.status = "approved";
-    borrowRequest.approvedAt = new Date();
-    borrowRequest.tool.status = "reserved";
-    await borrowRequest.tool.save();
+    // Use MongoDB transaction for atomic escrow lock + status update
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+      await adjustTrustPoints({
+        userId: borrowRequest.borrower,
+        community: borrowRequest.community,
+        amount: -borrowRequest.escrowPoints,
+        type: "escrow_lock",
+        reason: "Borrowing escrow locked",
+        relatedTool: borrowRequest.tool._id,
+        relatedBorrowRequest: borrowRequest._id,
+        session
+      });
+      borrowRequest.status = "approved";
+      borrowRequest.approvedAt = new Date();
+      borrowRequest.tool.status = "reserved";
+      await borrowRequest.tool.save({ session });
+      await borrowRequest.save({ session });
+      await session.commitTransaction();
+      session.endSession();
+    } catch (err) {
+      await session.abortTransaction();
+      session.endSession();
+      throw err;
+    }
   } else {
     borrowRequest.status = "rejected";
+    await borrowRequest.save();
   }
-  await borrowRequest.save();
   // notify borrower of decision
-  try {
-    const note = await Notification.create({ user: borrowRequest.borrower, title: "Borrow request update", message: `Your request for ${borrowRequest.tool.name} was ${borrowRequest.status}.` });
-    try { const { broadcastNotification } = await import("../services/realtimeService.js"); broadcastNotification(String(borrowRequest.borrower), { id: note._id, title: note.title, message: note.message }); } catch (e) {}
-  } catch (e) { }
+  await notifyUser(borrowRequest.borrower, { title: "Borrow request update", message: `Your request for ${borrowRequest.tool.name} was ${borrowRequest.status}.`, type: "borrow", data: { borrowRequestId: borrowRequest._id } });
   res.json({ borrowRequest });
 });
 
@@ -199,10 +292,7 @@ export const returnBorrowRequest = asyncHandler(async (req, res) => {
   );
 
   // notify owner that return was submitted
-  try {
-    const note = await Notification.create({ user: borrowRequest.owner, title: "Return submitted", message: `${req.user.fullName || 'A borrower'} submitted return evidence for ${borrowRequest.tool.name}.` });
-    try { const { broadcastNotification } = await import("../services/realtimeService.js"); broadcastNotification(String(borrowRequest.owner), { id: note._id, title: note.title, message: note.message }); } catch (e) {}
-  } catch (e) {}
+  await notifyUser(borrowRequest.owner, { title: "Return submitted", message: `${req.user.fullName || "A borrower"} submitted return evidence for ${borrowRequest.tool.name}.`, type: "borrow", data: { borrowRequestId: borrowRequest._id } });
 
   res.json({ borrowRequest, message: "Return submitted and awaiting owner verification." });
 });
@@ -214,9 +304,17 @@ export const verifyReturn = asyncHandler(async (req, res) => {
   const isAdmin = ["admin", "superAdmin"].includes(req.user.role);
   if (!isOwner && !isAdmin) return res.status(403).json({ message: "Only owner or admin can verify return" });
 
+  // Fetch community trust rules for configurable point values
+  const community = await Community.findById(borrowRequest.community);
+  const trustRules = community && community.trustRules ? community.trustRules : {};
+  const latePenaltyPerDay = trustRules.latePenaltyPerDay || 5;
+  const successfulBorrowReward = trustRules.successfulBorrowReward || 5;
+  const lendingReward = trustRules.lendingReward || 3;
+
   const returnedAt = borrowRequest.returnedAt || new Date();
   const lateDays = returnedAt > borrowRequest.endDate ? Math.ceil((returnedAt - borrowRequest.endDate) / (1000 * 60 * 60 * 24)) : 0;
-  borrowRequest.status = lateDays ? "overdue" : "completed";
+  // FIX: Late returns are still 'completed' — 'disputed' is only for actual disputes
+  borrowRequest.status = "completed";
   borrowRequest.tool.status = "available";
   borrowRequest.tool.healthScore = Math.max(0, borrowRequest.tool.healthScore - (lateDays ? 4 : 1));
   await borrowRequest.tool.save();
@@ -224,45 +322,60 @@ export const verifyReturn = asyncHandler(async (req, res) => {
 
   await BorrowTransaction.findOneAndUpdate(
     { borrowRequest: borrowRequest._id },
-    { returnedAt, lateDays, status: lateDays ? "disputed" : "completed" },
+    // FIX: Late returns should be 'completed' not 'disputed'
+    { returnedAt, lateDays, status: "completed" },
     { new: true }
   );
 
   // Release escrow
-  await adjustTrustPoints({
-    userId: borrowRequest.borrower,
-    community: borrowRequest.community,
-    amount: borrowRequest.escrowPoints,
-    type: "escrow_release",
-    reason: "Borrowing escrow released",
-    relatedTool: borrowRequest.tool._id,
-    relatedBorrowRequest: borrowRequest._id
-  });
-
-  if (lateDays) {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
     await adjustTrustPoints({
       userId: borrowRequest.borrower,
       community: borrowRequest.community,
-      amount: -lateDays * 5,
+      amount: borrowRequest.escrowPoints,
+      type: "escrow_release",
+      reason: "Borrowing escrow released",
+      relatedTool: borrowRequest.tool._id,
+      relatedBorrowRequest: borrowRequest._id,
+      session
+    });
+    await session.commitTransaction();
+    session.endSession();
+  } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+    throw err;
+  }
+
+  if (lateDays) {
+    // FIX: Use community-configured latePenaltyPerDay instead of hardcoded 5
+    await adjustTrustPoints({
+      userId: borrowRequest.borrower,
+      community: borrowRequest.community,
+      amount: -(latePenaltyPerDay * lateDays),
       type: "penalty",
-      reason: `Late return penalty: ${lateDays} day(s)`,
+      reason: `Late return penalty: ${lateDays} day(s) at ${latePenaltyPerDay} pts/day`,
       relatedTool: borrowRequest.tool._id,
       relatedBorrowRequest: borrowRequest._id
     });
   } else {
+    // FIX: Use community-configured successfulBorrowReward instead of hardcoded 3
     await adjustTrustPoints({
       userId: borrowRequest.borrower,
       community: borrowRequest.community,
-      amount: 3,
+      amount: successfulBorrowReward,
       type: "reward",
       reason: "Successful on-time return",
       relatedTool: borrowRequest.tool._id,
       relatedBorrowRequest: borrowRequest._id
     });
+    // FIX: Use community-configured lendingReward instead of hardcoded 8
     await adjustTrustPoints({
       userId: borrowRequest.owner,
       community: borrowRequest.community,
-      amount: 8,
+      amount: lendingReward,
       type: "reward",
       reason: "Lending reward",
       relatedTool: borrowRequest.tool._id,
@@ -271,10 +384,7 @@ export const verifyReturn = asyncHandler(async (req, res) => {
   }
 
   // notify borrower that return was verified and escrow released
-  try {
-    const note = await Notification.create({ user: borrowRequest.borrower, title: "Return verified", message: `Your return for ${borrowRequest.tool.name} was verified. Escrow released.` });
-    try { const { broadcastNotification } = await import("../services/realtimeService.js"); broadcastNotification(String(borrowRequest.borrower), { id: note._id, title: note.title, message: note.message }); } catch (e) {}
-  } catch (e) {}
+  await notifyUser(borrowRequest.borrower, { title: "Return verified", message: `Your return for ${borrowRequest.tool.name} was verified. Escrow released.`, type: "borrow", data: { borrowRequestId: borrowRequest._id } });
 
   res.json({ borrowRequest });
 });

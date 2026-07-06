@@ -1,16 +1,19 @@
 import { Router } from "express";
-import { complainBorrowRequest, createBorrowRequest, decideBorrowRequest, listBorrowRequests, pickupBorrowRequest, returnBorrowRequest, verifyReturn } from "../controllers/borrowController.js";
-import { protect, requireApprovedResident } from "../middleware/auth.js";
+import { complainBorrowRequest, createBorrowRequest, decideBorrowRequest, listBorrowRequests, pickupBorrowRequest, returnBorrowRequest, reviewBorrowVerification, verifyReturn } from "../controllers/borrowController.js";
+import { authorize, protect, requireApprovedResident } from "../middleware/auth.js";
+import { validateCreateBorrow } from "../validators/borrowValidator.js";
+import { validateMongoId } from "../validators/commonValidator.js";
 
 const router = Router();
 
 router.use(protect);
 router.get("/", listBorrowRequests);
-router.post("/", requireApprovedResident, createBorrowRequest);
-router.patch("/:id/decision", decideBorrowRequest);
-router.patch("/:id/pickup", requireApprovedResident, pickupBorrowRequest);
-router.patch("/:id/return", requireApprovedResident, returnBorrowRequest);
-router.post("/:id/complaints", requireApprovedResident, complainBorrowRequest);
-router.patch("/:id/verify-return", requireApprovedResident, verifyReturn);
+router.post("/", requireApprovedResident, validateCreateBorrow, createBorrowRequest);
+router.patch("/:id/admin-verification", authorize("admin", "superAdmin"), validateMongoId, reviewBorrowVerification);
+router.patch("/:id/decision", validateMongoId, decideBorrowRequest);
+router.patch("/:id/pickup", requireApprovedResident, validateMongoId, pickupBorrowRequest);
+router.patch("/:id/return", requireApprovedResident, validateMongoId, returnBorrowRequest);
+router.post("/:id/complaints", requireApprovedResident, validateMongoId, complainBorrowRequest);
+router.patch("/:id/verify-return", requireApprovedResident, validateMongoId, verifyReturn);
 
 export default router;

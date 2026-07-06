@@ -6,14 +6,11 @@ import { styles } from "../styles/styles";
 import ScreenHeader from "../components/ScreenHeader";
 import { useAuth } from "../store/AuthProvider";
 import WalletSummary from "../components/WalletSummary";
-import { Alert } from "react-native";
 import TransactionDetailModal from "../components/TransactionDetailModal";
-import TransferModal from "../components/TransferModal";
 
 export default function TrustWalletScreen() {
   const { user } = useAuth();
   const [transactions, setTransactions] = useState([]);
-  const [transferVisible, setTransferVisible] = useState(false);
   const lowTrust = Number(user?.trustPoints || 0) <= 50;
   const [refreshing, setRefreshing] = useState(false);
   const [selectedTx, setSelectedTx] = useState(null);
@@ -43,11 +40,7 @@ export default function TrustWalletScreen() {
           <Text style={styles.error}>Your trust score is low. Borrowing is paused until you are above 50 points.</Text>
         ) : null}
 
-        <WalletSummary
-          user={user}
-          onTransfer={() => setTransferVisible(true)}
-          onWithdraw={() => Alert.alert('Withdraw', 'Withdraw flow placeholder')}
-        />
+        <WalletSummary user={user} />
 
       <View style={styles.panel}>
         <Text style={styles.cardTitle}>How to raise trust</Text>
@@ -66,7 +59,6 @@ export default function TrustWalletScreen() {
       )) : <Text style={styles.muted}>No point history yet.</Text>}
 
       <TransactionDetailModal visible={!!selectedTx} tx={selectedTx} onClose={() => setSelectedTx(null)} />
-      <TransferModal visible={transferVisible} onClose={() => setTransferVisible(false)} onSuccess={() => { load(); }} />
       </ScrollView>
     </SafeAreaView>
   );

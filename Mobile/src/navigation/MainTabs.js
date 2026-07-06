@@ -31,7 +31,15 @@ export default function MainTabs() {
         }
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} options={({ navigation }) => ({ headerShown: true, headerTitle: "", headerRight: () => <NotificationBell navigation={navigation} />, tabBarLabel: "Home", tabBarBadge: notificationsCount > 0 ? (notificationsCount > 99 ? '99+' : notificationsCount) : undefined })} />
+      <Tab.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{
+          headerShown: false,
+          tabBarLabel: "Home",
+          tabBarBadge: notificationsCount > 0 ? (notificationsCount > 99 ? "99+" : notificationsCount) : undefined
+        }}
+      />
       <Tab.Screen name="Browse" component={BrowseToolsScreen} options={{ headerShown: false, tabBarLabel: "Browse" }} />
       <Tab.Screen name="Community" component={CommunityScreen} options={{ headerShown: false, tabBarLabel: "Community" }} />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false, tabBarLabel: "Profile" }} />

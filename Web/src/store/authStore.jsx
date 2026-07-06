@@ -12,6 +12,15 @@ export function AuthProvider({ children }) {
       .then((data) => setUser(data.user))
       .catch(() => clearTokens())
       .finally(() => setLoading(false));
+
+    const handleAuthLogout = () => {
+      logout();
+    };
+
+    window.addEventListener("auth-logout", handleAuthLogout);
+    return () => {
+      window.removeEventListener("auth-logout", handleAuthLogout);
+    };
   }, []);
 
   async function login(email, password) {

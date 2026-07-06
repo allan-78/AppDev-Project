@@ -1,8 +1,10 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from "react";
 import { Alert } from "react-native";
-import { api, setTokens, clearTokens, getAccessToken, API_URL } from "../api/client";
+import Constants, { ExecutionEnvironment } from "expo-constants";
+import { api, setTokens, clearTokens, getAccessToken, API_URL, registerPushToken, loadStoredTokens } from "../api/client";
 
 const AuthContext = createContext();
+const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -10,11 +12,40 @@ export function AuthProvider({ children }) {
   const [notificationsCount, setNotificationsCount] = useState(0);
   const wsRef = useRef(null);
 
+  async function registerDevicePushToken() {
+    if (isExpoGo) {
+      return;
+    }
+
+    try {
+      const Notifications = require("expo-notifications");
+      const permissions = await Notifications.getPermissionsAsync();
+      const finalPermissions = permissions.granted ? permissions : await Notifications.requestPermissionsAsync();
+      if (!finalPermissions.granted) return;
+      const token = await Notifications.getExpoPushTokenAsync();
+      await registerPushToken(token.data);
+    } catch (error) {
+      console.warn("Push registration skipped", error?.message || error);
+    }
+  }
+
   useEffect(() => {
-    api("/auth/me")
-      .then((data) => setUser(data.user))
-      .catch(() => clearTokens())
-      .finally(() => setBooting(false));
+    async function initAuth() {
+      try {
+        await loadStoredTokens();
+        // Only fetch if we actually have an access token
+        const token = getAccessToken();
+        if (token) {
+          const data = await api("/auth/me", { timeout: 8000 });
+          setUser(data.user);
+        }
+      } catch (err) {
+        clearTokens();
+      } finally {
+        setBooting(false);
+      }
+    }
+    initAuth();
   }, []);
 
   // open websocket for realtime notifications when authenticated
@@ -41,9 +72,14 @@ export function AuthProvider({ children }) {
   }, [user]);
 
   async function login(email, password) {
-    const data = await api("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+    const data = await api("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+      timeout: 20000
+    });
     setTokens(data);
     setUser(data.user);
+    registerDevicePushToken();
     return data.user;
   }
 

@@ -4,6 +4,7 @@ const toolImageSchema = new mongoose.Schema(
   {
     url: { type: String, required: true },
     publicId: String,
+    resourceType: { type: String, enum: ["image", "video"], default: "image" },
     label: { type: String, enum: ["listing", "pickup", "return", "dispute"], default: "listing" },
     uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
   },

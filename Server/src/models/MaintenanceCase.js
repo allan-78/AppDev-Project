@@ -6,7 +6,10 @@ const allocationSchema = new mongoose.Schema(
     borrowRequest: { type: mongoose.Schema.Types.ObjectId, ref: "BorrowRequest" },
     weight: Number,
     pointShare: Number,
-    reason: String
+    reason: String,
+    status: { type: String, enum: ["pending", "accepted", "disputed"], default: "pending" },
+    respondedAt: Date,
+    disputedReason: String
   },
   { _id: false }
 );
@@ -18,6 +21,8 @@ const maintenanceCaseSchema = new mongoose.Schema(
     openedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     issue: { type: String, required: true },
     estimatedPointCost: { type: Number, default: 50 },
+    allocationMethod: { type: String, enum: ["equal", "duration-weighted", "usage-weighted"], default: "usage-weighted" },
+    evidenceImages: [String],
     allocations: [allocationSchema],
     status: { type: String, enum: ["open", "allocated", "resolved"], default: "open" },
     resolvedAt: Date

@@ -1,5 +1,14 @@
 import mongoose from "mongoose";
 
+const mediaAssetSchema = new mongoose.Schema(
+  {
+    url: { type: String, required: true },
+    publicId: String,
+    resourceType: { type: String, enum: ["image", "video"], default: "image" }
+  },
+  { _id: false }
+);
+
 const communityRequestSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
@@ -10,6 +19,7 @@ const communityRequestSchema = new mongoose.Schema(
     },
     location: { type: String, required: true, trim: true },
     description: { type: String, required: true, trim: true },
+    residentIdMedia: mediaAssetSchema,
     requestedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     sourceCommunity: { type: mongoose.Schema.Types.ObjectId, ref: "Community" },
     status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },

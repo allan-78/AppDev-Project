@@ -19,6 +19,7 @@ import maintenanceRoutes from "./routes/maintenanceRoutes.js";
 import disputeRoutes from "./routes/disputeRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import miscRoutes from "./routes/miscRoutes.js";
+import ratingRoutes from "./routes/ratingRoutes.js";
 
 configureCloudinary();
 
@@ -26,7 +27,7 @@ const app = express();
 const allowedOrigins = [process.env.CLIENT_WEB_URL, process.env.CLIENT_MOBILE_URL].filter(Boolean);
 
 app.use(helmet());
-app.use(cors({ origin: allowedOrigins.length ? allowedOrigins : true, credentials: true }));
+app.use(cors({ origin: "*", credentials: true }));
 app.use(express.json({ limit: "1mb" }));
 app.use("/uploads-temp", express.static(path.resolve("uploads-temp")));
 app.use(morgan("dev"));
@@ -44,6 +45,7 @@ app.use("/api/trust-points", trustRoutes);
 app.use("/api/maintenance", maintenanceRoutes);
 app.use("/api/disputes", disputeRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/ratings", ratingRoutes);
 app.use("/api", miscRoutes);
 
 app.use(notFound);

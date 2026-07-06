@@ -33,12 +33,6 @@ export function requireApprovedResident(req, res, next) {
     if (req.user.status !== "approved") {
       return res.status(403).json({ message: "Resident account is not approved yet" });
     }
-    if (!req.user.emailVerified) {
-      return res.status(403).json({ message: "Please verify your email before performing this action." });
-    }
-    if (!req.user.idVerified) {
-      return res.status(403).json({ message: "Please upload a valid ID and wait for admin approval before requesting to borrow items." });
-    }
   }
   next();
 }

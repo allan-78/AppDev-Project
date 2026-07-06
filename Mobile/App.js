@@ -9,6 +9,7 @@ import { SafeAreaView, SafeAreaProvider } from "react-native-safe-area-context";
 import { styles } from "./src/styles/styles";
 import ErrorBoundary from "./src/components/ErrorBoundary";
 import GlobalLoader from "./src/components/GlobalLoader";
+import { ToastProvider } from "./src/store/ToastProvider";
 
 function RootNavigation() {
   const { user, booting } = useAuth();
@@ -34,13 +35,17 @@ function RootNavigation() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <SafeAreaProvider>
-        <NavigationContainer>
-          <StatusBar style="dark" />
-          <RootNavigation />
-        </NavigationContainer>
-      </SafeAreaProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <SafeAreaProvider>
+          <NavigationContainer>
+            <ToastProvider>
+              <StatusBar style="dark" />
+              <RootNavigation />
+            </ToastProvider>
+          </NavigationContainer>
+        </SafeAreaProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

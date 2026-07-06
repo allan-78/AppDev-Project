@@ -6,6 +6,8 @@ import { styles } from "../styles/styles";
 import ScreenHeader from "../components/ScreenHeader";
 import { useAuth } from "../store/AuthProvider";
 
+import TrustBadge from "../components/TrustBadge";
+
 export default function UserProfileScreen({ route, navigation }) {
   const userId = route.params?.userId;
   const [profile, setProfile] = useState(null);
@@ -55,42 +57,42 @@ export default function UserProfileScreen({ route, navigation }) {
   if (isMe) {
     return (
       <SafeAreaView style={[styles.screen, { backgroundColor: 'rgba(0,0,0,0.06)' }]}> 
-        <View style={{ flex: 1 }} />
-        <View style={{ height: '50%', backgroundColor: '#fff', borderTopLeftRadius: 12, borderTopRightRadius: 12, padding: 18 }}>
-          <View style={{ alignItems: 'center', marginBottom: 12 }}>
-            <Image source={{ uri: resolveUrl(profile.avatarUrl) || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400' }} style={styles.avatar} />
-            <Text style={[styles.cardTitle, { marginTop: 8 }]}>{profile.fullName}</Text>
-            <Text style={styles.muted}>Trust: {profile.trustPoints}</Text>
+      <View style={{ flex: 1 }} />
+      <View style={{ height: '55%', backgroundColor: '#fff', borderTopLeftRadius: 12, borderTopRightRadius: 12, padding: 18 }}>
+        <View style={{ alignItems: 'center', marginBottom: 12 }}>
+          <Image source={{ uri: resolveUrl(profile.avatarUrl) || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400' }} style={styles.avatar} />
+          <Text style={[styles.cardTitle, { marginTop: 8 }]}>{profile.fullName}</Text>
+          <View style={{ marginTop: 4 }}><TrustBadge score={profile.trustPoints} /></View>
+        </View>
+        <View style={{ marginBottom: 8 }}>
+          <Text style={styles.label}>Bio</Text>
+          <Text style={styles.muted}>{profile.bio || 'No bio yet.'}</Text>
+        </View>
+        <View style={{ marginBottom: 8 }}>
+          <Text style={styles.label}>Contact</Text>
+          <Text style={styles.muted}>{profile.phone || '—'}</Text>
+          <Text style={styles.muted}>{profile.address || '—'}</Text>
+        </View>
+        <View style={{ marginBottom: 8 }}>
+          <Text style={styles.label}>Community</Text>
+          <Text style={styles.muted}>{profile.community?.name || 'None'}</Text>
+        </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
+          <View>
+            <Text style={styles.label}>Followers</Text>
+            <Text style={styles.cardTitle}>{profile.followers?.length || 0}</Text>
           </View>
-          <View style={{ marginBottom: 8 }}>
-            <Text style={styles.label}>Bio</Text>
-            <Text style={styles.muted}>{profile.bio || 'No bio yet.'}</Text>
+          <View>
+            <Text style={styles.label}>Following</Text>
+            <Text style={styles.cardTitle}>{profile.following?.length || 0}</Text>
           </View>
-          <View style={{ marginBottom: 8 }}>
-            <Text style={styles.label}>Contact</Text>
-            <Text style={styles.muted}>{profile.phone || '—'}</Text>
-            <Text style={styles.muted}>{profile.address || '—'}</Text>
-          </View>
-          <View style={{ marginBottom: 8 }}>
-            <Text style={styles.label}>Community</Text>
-            <Text style={styles.muted}>{profile.community?.name || 'None'}</Text>
-          </View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
-            <View>
-              <Text style={styles.label}>Followers</Text>
-              <Text style={styles.cardTitle}>{profile.followers?.length || 0}</Text>
-            </View>
-            <View>
-              <Text style={styles.label}>Following</Text>
-              <Text style={styles.cardTitle}>{profile.following?.length || 0}</Text>
-            </View>
-            <View>
-              <Text style={styles.label}>Trust</Text>
-              <Text style={styles.cardTitle}>{profile.trustPoints}</Text>
-            </View>
+          <View>
+            <Text style={styles.label}>Tier</Text>
+            <Text style={styles.cardTitle}>{profile.trustPoints >= 76 ? "Platinum" : profile.trustPoints >= 51 ? "Gold" : profile.trustPoints >= 26 ? "Silver" : "Bronze"}</Text>
           </View>
         </View>
-      </SafeAreaView>
+      </View>
+    </SafeAreaView>
     );
   }
 
@@ -102,7 +104,7 @@ export default function UserProfileScreen({ route, navigation }) {
           <Image source={{ uri: resolveUrl(profile.avatarUrl) || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400' }} style={styles.avatar} />
           <View style={styles.profileInfo}>
             <Text style={styles.cardTitle}>{profile.fullName}</Text>
-            <Text style={styles.muted}>Trust: {profile.trustPoints}</Text>
+            <View style={{ marginVertical: 4 }}><TrustBadge score={profile.trustPoints} /></View>
             <Text style={styles.muted}>{profile.bio}</Text>
             <Text style={styles.muted}>{profile.address}</Text>
             <Text style={styles.muted}>{profile.phone}</Text>

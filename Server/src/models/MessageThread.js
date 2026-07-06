@@ -1,10 +1,20 @@
 import mongoose from "mongoose";
 
+const mediaAssetSchema = new mongoose.Schema(
+  {
+    url: { type: String, required: true },
+    publicId: String,
+    resourceType: { type: String, enum: ["image", "video"], default: "image" }
+  },
+  { _id: false }
+);
+
 const messageSchema = new mongoose.Schema(
   {
     sender: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     body: { type: String, required: true, trim: true },
     imageUrl: String,
+    media: [mediaAssetSchema],
     readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }]
   },
   { timestamps: true }

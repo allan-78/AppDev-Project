@@ -5,15 +5,17 @@ import { Community } from "../models/Community.js";
 import { User } from "../models/User.js";
 import { Category } from "../models/Category.js";
 import { Tool } from "../models/Tool.js";
+import { CommunityMembership } from "../models/CommunityMembership.js";
 
 async function seed() {
   await connectDB();
-  await Promise.all([Community.deleteMany({}), User.deleteMany({}), Category.deleteMany({}), Tool.deleteMany({})]);
+  await Promise.all([CommunityMembership.deleteMany({}), Community.deleteMany({}), User.deleteMany({}), Category.deleteMany({}), Tool.deleteMany({})]);
 
   const community = await Community.create({
     name: "Greenfield Subdivision",
     location: "Sample Barangay",
-    joinCode: "GREEN123"
+    joinCode: "GREEN123",
+    isDefault: true
   });
 
   const passwordHash = await bcrypt.hash("Password123!", 12);
@@ -25,6 +27,8 @@ async function seed() {
     address: "Clubhouse Office",
     role: "admin",
     status: "approved",
+    emailVerified: true,
+    idVerified: true,
     community: community._id,
     trustPoints: 150
   });
@@ -37,12 +41,19 @@ async function seed() {
     address: "Block 4 Lot 8",
     role: "resident",
     status: "approved",
+    emailVerified: true,
+    idVerified: true,
     community: community._id,
     trustPoints: 110
   });
 
   community.createdBy = admin._id;
   await community.save();
+
+  await CommunityMembership.insertMany([
+    { user: admin._id, community: community._id, role: "admin", status: "active", isDefault: true },
+    { user: resident._id, community: community._id, role: "member", status: "active", isDefault: true }
+  ]);
 
   const categories = await Category.insertMany([
     { name: "Garden", icon: "leaf", community: community._id },

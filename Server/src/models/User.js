@@ -22,6 +22,11 @@ const userSchema = new mongoose.Schema(
     badges: [{ type: String, trim: true }],
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    pushTokens: [{
+      token: { type: String, required: true },
+      platform: { type: String, enum: ["ios", "android", "web", "unknown"], default: "unknown" },
+      updatedAt: { type: Date, default: Date.now }
+    }],
     trustPoints: { type: Number, default: 100 },
     lockedPoints: { type: Number, default: 0 },
     refreshTokenHash: String,
@@ -31,5 +36,19 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Virtual to compute trust tier based on trustPoints
+userSchema.virtual("trustTier").get(function() {
+  if (this.trustPoints >= 76) return "Platinum";
+  if (this.trustPoints >= 51) return "Gold";
+  if (this.trustPoints >= 26) return "Silver";
+  return "Bronze";
+});
+
+// Index for leaderboard and distribution queries
+userSchema.index({ trustPoints: -1 });
+
+// Ensure virtuals are included in JSON responses
+userSchema.set("toJSON", { virtuals: true });
 
 export const User = mongoose.model("User", userSchema);

@@ -24,6 +24,8 @@ const communitySchema = new mongoose.Schema(
     description: { type: String, default: "" },
     location: { type: String, required: true, trim: true },
     joinCode: { type: String, required: true, unique: true, uppercase: true, trim: true },
+    status: { type: String, enum: ["active", "archived"], default: "active" },
+    isDefault: { type: Boolean, default: false },
     trustRules: { type: trustRulesSchema, default: () => ({}) },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
   },

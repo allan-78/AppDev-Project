@@ -2,6 +2,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { BorrowRequest } from "../models/BorrowRequest.js";
 import { MessageThread } from "../models/MessageThread.js";
 import { broadcastThreadMessage, broadcastDMMessage } from "../services/realtimeService.js";
+import { notifyUser } from "../services/notificationService.js";
 
 async function getAuthorizedThread(req, borrowRequestId) {
   const borrowRequest = await BorrowRequest.findById(borrowRequestId).populate("tool", "name");
@@ -47,6 +48,13 @@ export const sendMessage = asyncHandler(async (req, res) => {
     createdAt: message.createdAt,
     sender: { _id: req.user._id, fullName: req.user.fullName, avatarUrl: req.user.avatarUrl }
   });
+  const recipients = thread.participants.filter((id) => id.toString() !== req.user._id.toString());
+  await Promise.all(recipients.map((id) => notifyUser(id, {
+    title: "New message",
+    message: message.body,
+    type: "message",
+    data: { borrowRequestId: req.params.borrowRequestId, threadId: thread._id }
+  })));
   res.status(201).json({ message });
 });
 
@@ -93,7 +101,29 @@ export const sendDM = asyncHandler(async (req, res) => {
       createdAt: message.createdAt,
       sender: { _id: req.user._id, fullName: req.user.fullName, avatarUrl: req.user.avatarUrl }
     });
+    await notifyUser(other, {
+      title: `Message from ${req.user.fullName}`,
+      message: message.body,
+      type: "message",
+      data: { threadId: thread._id }
+    });
   }
 
   res.status(201).json({ message });
 });
+
+export const getDMThreads = asyncHandler(async (req, res) => {
+  // Find threads where user is a participant — both DM threads and legacy threads without kind
+  const threads = await MessageThread.find({
+    participants: req.user._id,
+    $or: [
+      { kind: "dm" },
+      { kind: { $exists: false } },
+      { borrowRequest: { $exists: false } }
+    ]
+  })
+    .populate("participants", "fullName avatarUrl trustPoints")
+    .sort({ lastMessageAt: -1, updatedAt: -1 });
+  res.json({ threads });
+});
+
